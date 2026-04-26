@@ -3,152 +3,242 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司訂餐助手 Pro - 智慧管理版</title>
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <title>CoEats Pro - 強化版</title>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .ocr-loading { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 50% { opacity: .5; } }
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-800">
-    <div id="app" class="max-w-md mx-auto min-h-screen pb-20">
-        <header class="bg-white p-6 shadow-sm mb-4 text-center">
-            <h1 class="text-2xl font-black text-emerald-600 tracking-tight">🍱 公司訂餐助手</h1>
-            <p class="text-xs text-slate-400 mt-1">智慧行政與 AI 匯入系統</p>
-        </header>
 
-        <div class="px-4 mb-6">
-            <div class="flex bg-slate-200 p-1 rounded-xl shadow-inner">
-                <button @click="view = 'user'" :class="view === 'user' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'" class="flex-1 py-2 rounded-lg font-bold transition-all">我要點餐</button>
-                <button @click="view = 'admin'" :class="view === 'admin' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'" class="flex-1 py-2 rounded-lg font-bold transition-all">行政管理</button>
-            </div>
-        </div>
+<body class="bg-slate-50">
+<div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-xl">
 
-        <main v-if="view === 'admin'" class="px-4 space-y-6">
-            <section class="bg-emerald-600 rounded-2xl p-5 text-white shadow-lg">
-                <h3 class="font-bold mb-3 flex items-center gap-2">✨ 智慧新增店家</h3>
-                <input id="store-name-input" v-model="newStoreName" type="text" placeholder="輸入店名或拍照自動辨識" title="店家名稱" class="w-full p-3 rounded-xl text-slate-800 mb-3 outline-none focus:ring-2 focus:ring-yellow-400">
-                
-                <div class="flex gap-2">
-                    <label class="flex-1 bg-white/20 hover:bg-white/30 border border-white/30 text-center py-3 rounded-xl cursor-pointer transition-colors text-sm font-medium">
-                        📷 拍菜單自動識別
-                        <input type="file" title="上傳菜單" accept="image/*" @change="handleImageUpload" class="hidden">
-                    </label>
-                    <button @click="addStore" class="bg-yellow-400 text-emerald-900 px-6 py-3 rounded-xl font-bold">新增</button>
-                </div>
-                <div v-if="ocrLoading" class="mt-3 flex items-center gap-2 text-xs bg-black/20 p-2 rounded-lg">
-                    <div class="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
-                    AI 正在分析菜單資訊，請稍候...
-                </div>
-            </section>
+    <!-- Header -->
+    <header class="bg-emerald-600 text-white p-6 text-center">
+        <h1 class="text-2xl font-black">🍱 CoEats 訂餐助手</h1>
+        <p class="text-sm opacity-80">強化穩定版</p>
+    </header>
 
-            <div v-for="(store, sIdx) in stores" :key="sIdx" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-                <div class="flex justify-between items-start mb-4">
-                    <div v-if="editingStoreIdx !== sIdx" class="flex-1">
-                        <h3 class="text-lg font-bold text-slate-800">{{ store.name }}</h3>
-                        <button @click="startEditStore(sIdx)" class="text-xs text-blue-500 font-medium">✏️ 修改資訊</button>
-                    </div>
-                    <div v-else class="flex-1 flex gap-2">
-                        <input v-model="tempEditName" title="編輯店家名稱" class="border-b-2 border-blue-500 outline-none flex-1 font-bold">
-                        <button @click="saveEditStore(sIdx)" class="text-xs bg-blue-500 text-white px-2 py-1 rounded">儲存</button>
-                    </div>
-                    <button @click="removeStore(sIdx)" title="刪除店家" class="text-red-300 hover:text-red-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
-                </div>
-
-                <div class="space-y-2 mb-4">
-                    <div v-for="(menu, mIdx) in store.menu" :key="mIdx" class="flex justify-between items-center text-sm bg-slate-50 p-2 rounded-lg">
-                        <span class="text-slate-600">{{ menu.name }} <span class="font-bold text-emerald-600 ml-2">${{ menu.price }}</span></span>
-                        <button @click="removeMenu(sIdx, mIdx)" title="移除菜色" class="text-slate-300 hover:text-red-500 text-xs">移除</button>
-                    </div>
-                </div>
-
-                <div class="flex gap-2 pt-2 border-t border-slate-100">
-                    <input v-model="newMenuNames[sIdx]" placeholder="菜名" title="菜名" class="flex-1 text-sm border-slate-200 border rounded-lg px-2 py-1">
-                    <input v-model="newMenuPrices[sIdx]" type="number" placeholder="$" title="價格" class="w-16 text-sm border-slate-200 border rounded-lg px-2 py-1">
-                    <button @click="addMenu(sIdx)" class="bg-slate-800 text-white text-xs px-3 py-1 rounded-lg font-bold">加菜</button>
-                </div>
-            </div>
-        </main>
-
-        <main v-if="view === 'user'" class="px-4 space-y-4">
-            <div v-for="(store, sIdx) in stores" :key="sIdx" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="bg-emerald-50 px-4 py-3 border-b border-emerald-100">
-                    <h2 class="font-bold text-emerald-800">{{ store.name }}</h2>
-                </div>
-                <ul class="divide-y divide-slate-50">
-                    <li v-for="(menu, mIdx) in store.menu" :key="mIdx" class="p-4 flex justify-between items-center active:bg-slate-50">
-                        <div>
-                            <span class="block font-medium">{{ menu.name }}</span>
-                            <span class="text-emerald-500 font-bold text-sm">${{ menu.price }}</span>
-                        </div>
-                        <button @click="orderItem(store.name, menu)" class="bg-emerald-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-sm">點餐</button>
-                    </li>
-                </ul>
-            </div>
-        </main>
+    <!-- Tabs -->
+    <div class="flex p-4 gap-2">
+        <button @click="view='user'" :class="tabClass('user')">點餐</button>
+        <button @click="view='admin'" :class="tabClass('admin')">管理</button>
     </div>
 
-    <script>
-        const { createApp, ref, onMounted } = Vue;
-        createApp({
-            setup() {
-                const view = ref('user');
-                const stores = ref(JSON.parse(localStorage.getItem('order_stores')) || [{ name: '巷口便當', menu: [{ name: '排骨飯', price: 100 }] }]);
-                const newStoreName = ref('');
-                const newMenuNames = ref([]);
-                const newMenuPrices = ref([]);
-                const ocrLoading = ref(false);
-                const editingStoreIdx = ref(-1);
-                const tempEditName = ref('');
+    <main class="p-4 space-y-4">
 
-                const save = () => localStorage.setItem('order_stores', JSON.stringify(stores.value));
-                const addStore = () => { if (!newStoreName.value) return; stores.value.unshift({ name: newStoreName.value, menu: [] }); newStoreName.value = ''; save(); };
-                const startEditStore = (idx) => { editingStoreIdx.value = idx; tempEditName.value = stores.value[idx].name; };
-                const saveEditStore = (idx) => { stores.value[idx].name = tempEditName.value; editingStoreIdx.value = -1; save(); };
-                const removeStore = (idx) => { if(confirm('確定刪除此店家？')) { stores.value.splice(idx, 1); save(); } };
-                const addMenu = (sIdx) => { if (!newMenuNames.value[sIdx] || !newMenuPrices.value[sIdx]) return; stores.value[sIdx].menu.push({ name: newMenuNames.value[sIdx], price: newMenuPrices.value[sIdx] }); newMenuNames.value[sIdx] = ''; newMenuPrices.value[sIdx] = ''; save(); };
-                const removeMenu = (sIdx, mIdx) => { stores.value[sIdx].menu.splice(mIdx, 1); save(); };
+        <!-- ADMIN -->
+        <div v-if="view==='admin'">
 
-                // AI 辨識圖片功能
-                const handleImageUpload = async (event) => {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    ocrLoading.value = true;
-                    try {
-                        const { data: { text } } = await Tesseract.recognize(file, 'chi_tra+eng');
-                        const lines = text.split('\n').filter(l => l.trim().length > 1);
-                        if (lines.length > 0) {
-                            newStoreName.value = lines[0].replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '');
-                            const detectedMenu = [];
-                            lines.slice(1, 8).forEach(line => {
-                                const priceMatch = line.match(/\d+/);
-                                if (priceMatch) {
-                                    detectedMenu.push({ name: line.replace(/\d+/g, '').replace(/[^\u4e00-\u9fa5a-zA-Z]/g, '').trim(), price: priceMatch[0] });
-                                }
-                            });
-                            if (detectedMenu.length > 0 && confirm(`AI 識別到店名「${newStoreName.value}」與 ${detectedMenu.length} 道菜色，是否自動匯入？`)) {
-                                stores.value.unshift({ name: newStoreName.value, menu: detectedMenu });
-                                newStoreName.value = ''; save();
-                            }
-                        }
-                    } catch (e) { alert('辨識失敗，請檢查網路或圖片內容'); } finally { ocrLoading.value = false; }
-                };
+            <!-- OCR -->
+            <div class="bg-emerald-50 p-4 rounded-xl">
+                <label class="block text-center cursor-pointer">
+                    <div v-if="!isProcessing">📸 拍菜單匯入</div>
+                    <div v-else class="ocr-loading">辨識中...</div>
+                    <input type="file" hidden @change="handleOcr">
+                </label>
 
-                const orderItem = (sName, item) => {
-                    const msg = `🙋 我要訂【${sName}】\n🍴 品項：${item.name}\n💰 價格：$${item.price}`;
-                    if (liff.isInClient()) {
-                        liff.sendMessages([{ type: 'text', text: msg }]).then(() => liff.closeWindow());
-                    } else { alert(msg + '\n(請在 LINE 內點擊)'); }
-                };
+                <div class="flex gap-2 mt-3">
+                    <input v-model="newStoreName" placeholder="店名" class="flex-1 border p-2 rounded">
+                    <button @click="addStore" class="bg-emerald-600 text-white px-4 rounded">新增</button>
+                </div>
+            </div>
 
-                onMounted(() => {
-                    liff.init({ liffId: "YOUR_LIFF_ID" }).then(() => { if (!liff.isLoggedIn()) liff.login(); });
-                });
+            <!-- Stores -->
+            <div v-for="(s,i) in stores" class="border p-3 rounded-xl">
+                <div class="flex justify-between">
+                    <b>{{s.name}}</b>
+                    <button @click="removeStore(i)" class="text-red-400">刪</button>
+                </div>
 
-                return { view, stores, newStoreName, newMenuNames, newMenuPrices, ocrLoading, editingStoreIdx, tempEditName, addStore, startEditStore, saveEditStore, removeStore, addMenu, removeMenu, handleImageUpload, orderItem };
+                <div v-for="(m,j) in s.items" class="flex justify-between text-sm mt-1">
+                    <span>{{m.name}} ${{m.price}}</span>
+                    <button @click="removeItem(i,j)">✕</button>
+                </div>
+
+                <div class="flex gap-1 mt-2">
+                    <input v-model="s.tempItem" placeholder="菜名" class="flex-1 border-b">
+                    <input v-model.number="s.tempPrice" type="number" class="w-16 border-b">
+                    <button @click="addItem(i)">＋</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- USER -->
+        <div v-if="view==='user'">
+
+            <div v-if="stores.length===0" class="text-center text-gray-400">
+                尚無菜單
+            </div>
+
+            <div v-for="s in stores" class="bg-emerald-50 p-4 rounded-xl">
+                <h2 class="font-bold mb-2">{{s.name}}</h2>
+
+                <button v-for="m in s.items"
+                    @click="orderItem(s.name,m)"
+                    class="w-full flex justify-between bg-white p-2 mb-1 rounded">
+
+                    <span>{{m.name}}</span>
+                    <span>${{m.price}}</span>
+                </button>
+            </div>
+
+        </div>
+
+    </main>
+</div>
+
+<script>
+const { createApp, ref, watch, onMounted } = Vue;
+
+createApp({
+setup(){
+
+    const view = ref('user');
+    const stores = ref(JSON.parse(localStorage.getItem('stores')||'[]'));
+    const history = ref(JSON.parse(localStorage.getItem('history')||'[]'));
+
+    const newStoreName = ref('');
+    const isProcessing = ref(false);
+    const liffReady = ref(false);
+
+    // --- OCR ---
+    const handleOcr = async (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+
+        isProcessing.value = true;
+
+        try{
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            await img.decode();
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            ctx.filter = 'grayscale(100%) contrast(200%)';
+            ctx.drawImage(img,0,0);
+
+            const { data:{ text } } = await Tesseract.recognize(canvas,'chi_tra+eng');
+
+            const lines = text.split('\n')
+                .map(l=>l.trim())
+                .filter(l=>l.length>2);
+
+            const storeName = lines[0].replace(/[^\u4e00-\u9fa5]/g,'');
+
+            if(!storeName) throw new Error();
+
+            if(stores.value.some(s=>s.name===storeName)){
+                alert('店家已存在');
+                return;
             }
-        }).mount('#app');
-    </script>
+
+            const items = lines.slice(1)
+                .map(l=>{
+                    const m = l.match(/(.+?)[\s$]*(\d{2,3})/);
+                    if(!m) return null;
+                    return {name:m[1],price:+m[2]};
+                })
+                .filter(Boolean)
+                .slice(0,10);
+
+            if(items.length===0) throw new Error();
+
+            if(confirm(`匯入 ${storeName} ?`)){
+                stores.value.push({name:storeName,items,tempItem:'',tempPrice:0});
+            }
+
+        }catch{
+            alert('辨識失敗');
+        }
+
+        isProcessing.value = false;
+    };
+
+    // --- Order ---
+    const orderItem = (store,item)=>{
+        const msg = `🍱訂單\n${store}\n${item.name} $${item.price}`;
+
+        if(liffReady.value && liff.isInClient()){
+            liff.sendMessages([{type:'text',text:msg}]);
+        }else{
+            navigator.clipboard.writeText(msg);
+            alert('已複製訂單');
+        }
+
+        history.value.unshift({
+            time:new Date().toLocaleString(),
+            store,
+            item:item.name
+        });
+    };
+
+    // --- CRUD ---
+    const addStore = ()=>{
+        if(!newStoreName.value) return;
+        if(stores.value.some(s=>s.name===newStoreName.value)){
+            alert('已存在');
+            return;
+        }
+        stores.value.push({name:newStoreName.value,items:[],tempItem:'',tempPrice:0});
+        newStoreName.value='';
+    };
+
+    const removeStore = i=>stores.value.splice(i,1);
+
+    const addItem = i=>{
+        const s = stores.value[i];
+        if(!s.tempItem) return;
+        s.items.push({name:s.tempItem,price:s.tempPrice||0});
+        s.tempItem=''; s.tempPrice=0;
+    };
+
+    const removeItem = (i,j)=>stores.value[i].items.splice(j,1);
+
+    // --- storage ---
+    watch(stores,v=>{
+        try{
+            localStorage.setItem('stores',JSON.stringify(v));
+        }catch{}
+    },{deep:true});
+
+    watch(history,v=>{
+        try{
+            localStorage.setItem('history',JSON.stringify(v));
+        }catch{}
+    },{deep:true});
+
+    // --- LIFF ---
+    onMounted(async()=>{
+        try{
+            await liff.init({ liffId:"你的_LIFF_ID" });
+            liffReady.value = true;
+        }catch{}
+    });
+
+    const tabClass = (t)=>
+        `flex-1 py-2 rounded ${view.value===t?'bg-emerald-500 text-white':'bg-gray-100'}`;
+
+    return {
+        view,stores,newStoreName,isProcessing,
+        handleOcr,addStore,removeStore,addItem,removeItem,orderItem,tabClass
+    };
+}
+}).mount('#app');
+</script>
+
 </body>
 </html>

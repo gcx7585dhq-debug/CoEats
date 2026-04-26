@@ -1,139 +1,152 @@
-<index.html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司點餐系統 (LIFF)</title>
+    <title>公司訂餐助手 Pro - 智慧管理版</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
-<body class="bg-gray-100">
-    <div id="app" class="max-w-md mx-auto p-4">
-        <h1 class="text-2xl font-bold text-center mb-6 text-green-600">公司訂餐助手</h1>
+<body class="bg-slate-50 text-slate-800">
+    <div id="app" class="max-w-md mx-auto min-h-screen pb-20">
+        <header class="bg-white p-6 shadow-sm mb-4 text-center">
+            <h1 class="text-2xl font-black text-emerald-600 tracking-tight">🍱 公司訂餐助手</h1>
+            <p class="text-xs text-slate-400 mt-1">智慧行政與 AI 匯入系統</p>
+        </header>
 
-        <div class="flex mb-4 bg-white rounded-lg shadow">
-            <button @click="view = 'user'" :class="view === 'user' ? 'bg-green-500 text-white' : ''" class="flex-1 py-2 rounded-l-lg">我要點餐</button>
-            <button @click="view = 'admin'" :class="view === 'admin' ? 'bg-green-500 text-white' : ''" class="flex-1 py-2 rounded-r-lg">行政管理</button>
+        <div class="px-4 mb-6">
+            <div class="flex bg-slate-200 p-1 rounded-xl shadow-inner">
+                <button @click="view = 'user'" :class="view === 'user' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'" class="flex-1 py-2 rounded-lg font-bold transition-all">我要點餐</button>
+                <button @click="view = 'admin'" :class="view === 'admin' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'" class="flex-1 py-2 rounded-lg font-bold transition-all">行政管理</button>
+            </div>
         </div>
 
-        <div v-if="view === 'user'">
-            <div v-for="(store, sIdx) in stores" :key="sIdx" class="bg-white p-4 mb-4 rounded-xl shadow">
-                <h2 class="text-xl font-bold border-b pb-2 mb-2">{{ store.name }}</h2>
-                <ul>
-                    <li v-for="(menu, mIdx) in store.menu" :key="mIdx" class="flex justify-between py-2">
-                        <span>{{ menu.name }}</span>
-                        <div class="flex items-center">
-                            <span class="mr-4 text-orange-500">${{ menu.price }}</span>
-                            <button @click="orderItem(store.name, menu)" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">點餐</button>
+        <main v-if="view === 'admin'" class="px-4 space-y-6">
+            <section class="bg-emerald-600 rounded-2xl p-5 text-white shadow-lg">
+                <h3 class="font-bold mb-3 flex items-center gap-2">✨ 智慧新增店家</h3>
+                <input id="store-name-input" v-model="newStoreName" type="text" placeholder="輸入店名或拍照自動辨識" title="店家名稱" class="w-full p-3 rounded-xl text-slate-800 mb-3 outline-none focus:ring-2 focus:ring-yellow-400">
+                
+                <div class="flex gap-2">
+                    <label class="flex-1 bg-white/20 hover:bg-white/30 border border-white/30 text-center py-3 rounded-xl cursor-pointer transition-colors text-sm font-medium">
+                        📷 拍菜單自動識別
+                        <input type="file" title="上傳菜單" accept="image/*" @change="handleImageUpload" class="hidden">
+                    </label>
+                    <button @click="addStore" class="bg-yellow-400 text-emerald-900 px-6 py-3 rounded-xl font-bold">新增</button>
+                </div>
+                <div v-if="ocrLoading" class="mt-3 flex items-center gap-2 text-xs bg-black/20 p-2 rounded-lg">
+                    <div class="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
+                    AI 正在分析菜單資訊，請稍候...
+                </div>
+            </section>
+
+            <div v-for="(store, sIdx) in stores" :key="sIdx" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+                <div class="flex justify-between items-start mb-4">
+                    <div v-if="editingStoreIdx !== sIdx" class="flex-1">
+                        <h3 class="text-lg font-bold text-slate-800">{{ store.name }}</h3>
+                        <button @click="startEditStore(sIdx)" class="text-xs text-blue-500 font-medium">✏️ 修改資訊</button>
+                    </div>
+                    <div v-else class="flex-1 flex gap-2">
+                        <input v-model="tempEditName" title="編輯店家名稱" class="border-b-2 border-blue-500 outline-none flex-1 font-bold">
+                        <button @click="saveEditStore(sIdx)" class="text-xs bg-blue-500 text-white px-2 py-1 rounded">儲存</button>
+                    </div>
+                    <button @click="removeStore(sIdx)" title="刪除店家" class="text-red-300 hover:text-red-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                </div>
+
+                <div class="space-y-2 mb-4">
+                    <div v-for="(menu, mIdx) in store.menu" :key="mIdx" class="flex justify-between items-center text-sm bg-slate-50 p-2 rounded-lg">
+                        <span class="text-slate-600">{{ menu.name }} <span class="font-bold text-emerald-600 ml-2">${{ menu.price }}</span></span>
+                        <button @click="removeMenu(sIdx, mIdx)" title="移除菜色" class="text-slate-300 hover:text-red-500 text-xs">移除</button>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 pt-2 border-t border-slate-100">
+                    <input v-model="newMenuNames[sIdx]" placeholder="菜名" title="菜名" class="flex-1 text-sm border-slate-200 border rounded-lg px-2 py-1">
+                    <input v-model="newMenuPrices[sIdx]" type="number" placeholder="$" title="價格" class="w-16 text-sm border-slate-200 border rounded-lg px-2 py-1">
+                    <button @click="addMenu(sIdx)" class="bg-slate-800 text-white text-xs px-3 py-1 rounded-lg font-bold">加菜</button>
+                </div>
+            </div>
+        </main>
+
+        <main v-if="view === 'user'" class="px-4 space-y-4">
+            <div v-for="(store, sIdx) in stores" :key="sIdx" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="bg-emerald-50 px-4 py-3 border-b border-emerald-100">
+                    <h2 class="font-bold text-emerald-800">{{ store.name }}</h2>
+                </div>
+                <ul class="divide-y divide-slate-50">
+                    <li v-for="(menu, mIdx) in store.menu" :key="mIdx" class="p-4 flex justify-between items-center active:bg-slate-50">
+                        <div>
+                            <span class="block font-medium">{{ menu.name }}</span>
+                            <span class="text-emerald-500 font-bold text-sm">${{ menu.price }}</span>
                         </div>
+                        <button @click="orderItem(store.name, menu)" class="bg-emerald-500 text-white px-5 py-2 rounded-full text-sm font-bold shadow-sm">點餐</button>
                     </li>
                 </ul>
             </div>
-        </div>
-
-        <div v-if="view === 'admin'" class="space-y-6">
-            <div class="bg-white p-4 rounded-xl shadow">
-                <h3 class="font-bold mb-2">新增店家</h3>
-                <div class="flex gap-2">
-                    <input v-model="newStoreName" type="text" placeholder="店家名稱" class="flex-1 border p-2 rounded">
-                    <button @click="addStore" class="bg-blue-500 text-white px-4 py-2 rounded">新增</button>
-                </div>
-            </div>
-
-            <div v-for="(store, sIdx) in stores" :key="sIdx" class="bg-white p-4 rounded-xl shadow relative">
-                <button @click="removeStore(sIdx)" class="absolute top-2 right-2 text-red-400">刪除店家</button>
-                <h3 class="font-bold text-lg text-blue-600">{{ store.name }}</h3>
-                
-                <div class="mt-2 space-y-2">
-                    <div v-for="(menu, mIdx) in store.menu" :key="mIdx" class="flex justify-between text-sm bg-gray-50 p-2">
-                        <span>{{ menu.name }} (${{ menu.price }})</span>
-                        <button @click="removeMenu(sIdx, mIdx)" class="text-red-500">刪除</button>
-                    </div>
-                </div>
-
-                <div class="mt-3 flex gap-2">
-                    <input v-model="newMenuName" placeholder="菜名" class="border text-sm p-1 w-1/2">
-                    <input v-model="newMenuPrice" type="number" placeholder="價格" class="border text-sm p-1 w-1/4">
-                    <button @click="addMenu(sIdx)" class="bg-gray-200 px-2 rounded text-sm">加菜</button>
-                </div>
-            </div>
-
-            <div class="bg-white p-4 rounded-xl shadow">
-                <h3 class="font-bold mb-4 border-b">未繳費員工 (個別通知)</h3>
-                <div v-for="user in unpaidUsers" :key="user.id" class="flex justify-between items-center py-2 border-b last:border-0">
-                    <div>
-                        <p class="font-medium">{{ user.name }}</p>
-                        <p class="text-xs text-gray-400">金額: ${{ user.amount }}</p>
-                    </div>
-                    <button @click="sendReminder(user)" class="bg-orange-500 text-white px-4 py-1 rounded-full text-sm">提醒他</button>
-                </div>
-            </div>
-        </div>
+        </main>
     </div>
 
     <script>
         const { createApp, ref, onMounted } = Vue;
-
         createApp({
             setup() {
                 const view = ref('user');
-                const stores = ref(JSON.parse(localStorage.getItem('order_stores')) || [
-                    { name: '巷口便當', menu: [{ name: '排骨飯', price: 100 }] }
-                ]);
-                const unpaidUsers = ref([
-                    { id: 'u1', name: '王小明', amount: 100 },
-                    { id: 'u2', name: '李大華', amount: 120 }
-                ]);
-
+                const stores = ref(JSON.parse(localStorage.getItem('order_stores')) || [{ name: '巷口便當', menu: [{ name: '排骨飯', price: 100 }] }]);
                 const newStoreName = ref('');
-                const newMenuName = ref('');
-                const newMenuPrice = ref('');
+                const newMenuNames = ref([]);
+                const newMenuPrices = ref([]);
+                const ocrLoading = ref(false);
+                const editingStoreIdx = ref(-1);
+                const tempEditName = ref('');
 
-                // 儲存資料
                 const save = () => localStorage.setItem('order_stores', JSON.stringify(stores.value));
-
-                const addStore = () => {
-                    if (!newStoreName.value) return;
-                    stores.value.push({ name: newStoreName.value, menu: [] });
-                    newStoreName.value = '';
-                    save();
-                };
-
-                const removeStore = (idx) => { stores.value.splice(idx, 1); save(); };
-
-                const addMenu = (sIdx) => {
-                    if (!newMenuName.value || !newMenuPrice.value) return;
-                    stores.value[sIdx].menu.push({ name: newMenuName.value, price: newMenuPrice.value });
-                    newMenuName.value = ''; newMenuPrice.value = '';
-                    save();
-                };
-
+                const addStore = () => { if (!newStoreName.value) return; stores.value.unshift({ name: newStoreName.value, menu: [] }); newStoreName.value = ''; save(); };
+                const startEditStore = (idx) => { editingStoreIdx.value = idx; tempEditName.value = stores.value[idx].name; };
+                const saveEditStore = (idx) => { stores.value[idx].name = tempEditName.value; editingStoreIdx.value = -1; save(); };
+                const removeStore = (idx) => { if(confirm('確定刪除此店家？')) { stores.value.splice(idx, 1); save(); } };
+                const addMenu = (sIdx) => { if (!newMenuNames.value[sIdx] || !newMenuPrices.value[sIdx]) return; stores.value[sIdx].menu.push({ name: newMenuNames.value[sIdx], price: newMenuPrices.value[sIdx] }); newMenuNames.value[sIdx] = ''; newMenuPrices.value[sIdx] = ''; save(); };
                 const removeMenu = (sIdx, mIdx) => { stores.value[sIdx].menu.splice(mIdx, 1); save(); };
 
-                // 重要：個別通知功能
-                const sendReminder = (user) => {
-                    // 呼叫 LINE LIFF 發送訊息功能
+                // AI 辨識圖片功能
+                const handleImageUpload = async (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    ocrLoading.value = true;
+                    try {
+                        const { data: { text } } = await Tesseract.recognize(file, 'chi_tra+eng');
+                        const lines = text.split('\n').filter(l => l.trim().length > 1);
+                        if (lines.length > 0) {
+                            newStoreName.value = lines[0].replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '');
+                            const detectedMenu = [];
+                            lines.slice(1, 8).forEach(line => {
+                                const priceMatch = line.match(/\d+/);
+                                if (priceMatch) {
+                                    detectedMenu.push({ name: line.replace(/\d+/g, '').replace(/[^\u4e00-\u9fa5a-zA-Z]/g, '').trim(), price: priceMatch[0] });
+                                }
+                            });
+                            if (detectedMenu.length > 0 && confirm(`AI 識別到店名「${newStoreName.value}」與 ${detectedMenu.length} 道菜色，是否自動匯入？`)) {
+                                stores.value.unshift({ name: newStoreName.value, menu: detectedMenu });
+                                newStoreName.value = ''; save();
+                            }
+                        }
+                    } catch (e) { alert('辨識失敗，請檢查網路或圖片內容'); } finally { ocrLoading.value = false; }
+                };
+
+                const orderItem = (sName, item) => {
+                    const msg = `🙋 我要訂【${sName}】\n🍴 品項：${item.name}\n💰 價格：$${item.price}`;
                     if (liff.isInClient()) {
-                        liff.sendMessages([{
-                            type: 'text',
-                            text: `📢 繳費提醒：\n${user.name} 您好，您尚有午餐費 $${user.amount} 未繳交，請記得找行政人員喔！`
-                        }]).then(() => {
-                            alert('已成功發送個別提醒到聊天室！');
-                        }).catch(err => alert('發送失敗，請確認權限'));
-                    } else {
-                        alert('非 LINE 環境，無法發送訊息：\n' + user.name + ' 該繳錢囉！');
-                    }
+                        liff.sendMessages([{ type: 'text', text: msg }]).then(() => liff.closeWindow());
+                    } else { alert(msg + '\n(請在 LINE 內點擊)'); }
                 };
 
                 onMounted(() => {
-                    // 初始化 LIFF
-                    liff.init({ liffId: "YOUR_LIFF_ID" }).then(() => {
-                        if (!liff.isLoggedIn()) liff.login();
-                    });
+                    liff.init({ liffId: "YOUR_LIFF_ID" }).then(() => { if (!liff.isLoggedIn()) liff.login(); });
                 });
 
-                return { view, stores, unpaidUsers, newStoreName, newMenuName, newMenuPrice, addStore, removeStore, addMenu, removeMenu, sendReminder };
+                return { view, stores, newStoreName, newMenuNames, newMenuPrices, ocrLoading, editingStoreIdx, tempEditName, addStore, startEditStore, saveEditStore, removeStore, addMenu, removeMenu, handleImageUpload, orderItem };
             }
         }).mount('#app');
     </script>

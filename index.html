@@ -29,7 +29,6 @@
 <!-- ADMIN -->
 <div v-if="view==='admin'" class="p-4 space-y-4">
 
-  <!-- 任務 -->
   <div class="bg-yellow-50 p-3 rounded">
     <h2 class="font-bold mb-2">📦 訂單任務</h2>
 
@@ -47,22 +46,28 @@
     </button>
   </div>
 
-  <!-- OCR 上傳 -->
   <div class="bg-blue-50 p-3 rounded">
     <h2 class="font-bold mb-2">📷 菜單辨識</h2>
 
-    <input type="file" accept="image/*" @change="handleImage" title="上傳菜單">
-    <div v-if="ocrLoading" class="text-sm text-gray-500 mt-2">辨識中...</div>
+    <input type="file" accept="image/*" @change="handleImage"
+      title="上傳菜單圖片">
+
+    <div v-if="ocrLoading" class="text-sm text-gray-500 mt-2">
+      辨識中...
+    </div>
   </div>
 
-  <!-- 店家 -->
   <div>
     <h2 class="font-bold mb-2">🏪 店家</h2>
 
-    <input v-model="newStore" placeholder="店名" title="店名"
+    <label>店名</label>
+    <input v-model="newStore" placeholder="輸入店名" title="店名"
       class="w-full mb-2 p-2 border rounded">
 
-    <button @click="addStore" class="w-full bg-blue-500 text-white py-2 rounded mb-2">新增店家</button>
+    <button @click="addStore"
+      class="w-full bg-blue-500 text-white py-2 rounded mb-2">
+      新增店家
+    </button>
 
     <div v-for="(s,i) in stores" class="border p-2 mb-2 rounded">
       <div class="font-bold">{{s.name}}</div>
@@ -107,7 +112,7 @@
 </div>
 
 <script>
-const {createApp, ref, computed} = Vue;
+const { createApp, ref, computed } = Vue;
 
 createApp({
 setup(){
@@ -125,7 +130,7 @@ const ocrLoading = ref(false);
 
 const activeTask = computed(()=>tasks.value.find(t=>!t.closed));
 
-// ===== 店家 =====
+// 店家
 const addStore = ()=>{
   if(!newStore.value) return;
   stores.value.push({name:newStore.value,items:[]});
@@ -134,7 +139,7 @@ const addStore = ()=>{
 
 const removeItem = (i,j)=>stores.value[i].items.splice(j,1);
 
-// ===== 任務 =====
+// 任務
 const createTask = ()=>{
   if(!taskName.value || !cutoffTime.value) return;
 
@@ -150,7 +155,7 @@ const createTask = ()=>{
   taskName.value='';
 };
 
-// ===== 點餐 =====
+// 點餐
 const order = (store,item)=>{
   if(!activeTask.value) return alert("尚未開單");
 
@@ -170,7 +175,7 @@ const order = (store,item)=>{
   alert("已下單");
 };
 
-// ===== OCR =====
+// OCR
 const handleImage = async (e)=>{
   const file = e.target.files[0];
   if(!file) return;
@@ -192,8 +197,7 @@ const handleImage = async (e)=>{
 
   const { data:{ text } } = await Tesseract.recognize(
     canvas,
-    'chi_tra',
-    { tessedit_pageseg_mode: Tesseract.PSM.AUTO }
+    'chi_tra'
   );
 
   const lines = text.split('\n').map(l=>l.trim()).filter(l=>l);
@@ -215,10 +219,7 @@ const handleImage = async (e)=>{
   }));
 
   if(menu.length){
-    stores.value.push({
-      name: "OCR店家",
-      items: menu
-    });
+    stores.value.push({ name:"OCR店家", items:menu });
   }else{
     alert("辨識失敗");
   }
@@ -226,7 +227,7 @@ const handleImage = async (e)=>{
   ocrLoading.value = false;
 };
 
-// ===== 倒數 =====
+// 倒數
 setInterval(()=>{
   if(!activeTask.value) return;
 
@@ -249,7 +250,7 @@ setInterval(()=>{
 
 },1000);
 
-// ===== 儲存 =====
+// 儲存
 setInterval(()=>{
   localStorage.setItem('stores',JSON.stringify(stores.value));
   localStorage.setItem('tasks',JSON.stringify(tasks.value));

@@ -7,6 +7,7 @@
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/vue@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 </head>
 
@@ -28,18 +29,16 @@
 <!-- ADMIN -->
 <div v-if="view==='admin'" class="p-4 space-y-4">
 
+  <!-- 任務 -->
   <div class="bg-yellow-50 p-3 rounded">
     <h2 class="font-bold mb-2">📦 訂單任務</h2>
 
-    <label for="taskName" class="text-sm">任務名稱</label>
-    <input id="taskName" v-model="taskName"
-      placeholder="例如：午餐"
-      title="任務名稱"
+    <label>任務名稱</label>
+    <input v-model="taskName" placeholder="例如：午餐" title="任務名稱"
       class="w-full mb-2 p-2 border rounded">
 
-    <label for="cutoffTime" class="text-sm">結算時間</label>
-    <input id="cutoffTime" type="time" v-model="cutoffTime"
-      title="結算時間"
+    <label>結算時間</label>
+    <input type="time" v-model="cutoffTime" title="結算時間"
       class="w-full mb-2 p-2 border rounded">
 
     <button @click="createTask"
@@ -48,17 +47,22 @@
     </button>
   </div>
 
+  <!-- OCR 上傳 -->
+  <div class="bg-blue-50 p-3 rounded">
+    <h2 class="font-bold mb-2">📷 菜單辨識</h2>
+
+    <input type="file" accept="image/*" @change="handleImage" title="上傳菜單">
+    <div v-if="ocrLoading" class="text-sm text-gray-500 mt-2">辨識中...</div>
+  </div>
+
+  <!-- 店家 -->
   <div>
     <h2 class="font-bold mb-2">🏪 店家</h2>
 
-    <label for="storeName" class="text-sm">新增店家</label>
-    <div class="flex gap-2 mb-2">
-      <input id="storeName" v-model="newStore"
-        placeholder="輸入店名"
-        title="店家名稱"
-        class="flex-1 p-2 border rounded">
-      <button @click="addStore" class="bg-blue-500 text-white px-3 rounded">＋</button>
-    </div>
+    <input v-model="newStore" placeholder="店名" title="店名"
+      class="w-full mb-2 p-2 border rounded">
+
+    <button @click="addStore" class="w-full bg-blue-500 text-white py-2 rounded mb-2">新增店家</button>
 
     <div v-for="(s,i) in stores" class="border p-2 mb-2 rounded">
       <div class="font-bold">{{s.name}}</div>
@@ -66,20 +70,6 @@
       <div v-for="(item,j) in s.items" class="flex justify-between text-sm">
         {{item.name}} - ${{item.price}}
         <button @click="removeItem(i,j)" class="text-red-500">X</button>
-      </div>
-
-      <div class="flex gap-1 mt-1">
-        <input v-model="s.tempName"
-          placeholder="菜名"
-          title="菜名"
-          class="flex-1 border p-1">
-
-        <input v-model.number="s.tempPrice" type="number"
-          placeholder="價格"
-          title="價格"
-          class="w-16 border p-1">
-
-        <button @click="addItem(i)" class="bg-green-500 text-white px-2">＋</button>
       </div>
     </div>
   </div>
@@ -90,22 +80,22 @@
 <div v-if="view==='user'" class="p-4 space-y-4">
 
   <div v-if="!activeTask" class="text-center text-gray-400">
-    尚未開啟訂單
+    尚未開單
   </div>
 
   <div v-else>
-    <div class="bg-emerald-100 p-2 rounded mb-2 text-sm">
+    <div class="bg-emerald-100 p-2 rounded text-sm">
       📦 {{activeTask.name}}<br>
-      ⏰ 截止：{{activeTask.cutoff}}<br>
-      ⏳ 剩餘：{{countdown}}
+      ⏰ {{activeTask.cutoff}}<br>
+      ⏳ {{countdown}}
     </div>
 
-    <div v-for="store in stores" class="bg-gray-50 p-3 rounded mb-3">
-      <div class="font-bold mb-2">{{store.name}}</div>
+    <div v-for="store in stores" class="bg-gray-50 p-3 rounded mt-3">
+      <div class="font-bold">{{store.name}}</div>
 
       <button v-for="item in store.items"
         @click="order(store.name,item)"
-        class="w-full flex justify-between bg-white p-2 mb-1 rounded shadow">
+        class="w-full flex justify-between bg-white p-2 mt-1 rounded shadow">
         <span>{{item.name}}</span>
         <span>${{item.price}}</span>
       </button>
@@ -131,42 +121,36 @@ const newStore = ref('');
 const taskName = ref('');
 const cutoffTime = ref('');
 const countdown = ref('');
+const ocrLoading = ref(false);
 
 const activeTask = computed(()=>tasks.value.find(t=>!t.closed));
 
-// 店家
+// ===== 店家 =====
 const addStore = ()=>{
   if(!newStore.value) return;
-  stores.value.push({name:newStore.value,items:[],tempName:'',tempPrice:0});
+  stores.value.push({name:newStore.value,items:[]});
   newStore.value='';
-};
-
-const addItem = (i)=>{
-  const s = stores.value[i];
-  if(!s.tempName) return;
-  s.items.push({name:s.tempName,price:s.tempPrice});
-  s.tempName=''; s.tempPrice=0;
 };
 
 const removeItem = (i,j)=>stores.value[i].items.splice(j,1);
 
-// 任務
+// ===== 任務 =====
 const createTask = ()=>{
   if(!taskName.value || !cutoffTime.value) return;
 
   tasks.value.forEach(t=>t.closed=true);
 
   tasks.value.push({
-    name: taskName.value,
-    cutoff: cutoffTime.value,
-    orders: [],
+    name:taskName.value,
+    cutoff:cutoffTime.value,
+    orders:[],
     closed:false
   });
 
   taskName.value='';
 };
 
-// 點餐
+// ===== 點餐 =====
 const order = (store,item)=>{
   if(!activeTask.value) return alert("尚未開單");
 
@@ -180,14 +164,69 @@ const order = (store,item)=>{
   activeTask.value.orders.push({
     store,
     item:item.name,
-    price:item.price,
-    time:new Date().toLocaleTimeString()
+    price:item.price
   });
 
   alert("已下單");
 };
 
-// 倒數
+// ===== OCR =====
+const handleImage = async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+
+  ocrLoading.value = true;
+
+  const img = new Image();
+  img.src = URL.createObjectURL(file);
+  await img.decode();
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = img.width;
+  canvas.height = img.height;
+
+  ctx.filter = 'grayscale(100%) contrast(300%) brightness(120%)';
+  ctx.drawImage(img,0,0);
+
+  const { data:{ text } } = await Tesseract.recognize(
+    canvas,
+    'chi_tra',
+    { tessedit_pageseg_mode: Tesseract.PSM.AUTO }
+  );
+
+  const lines = text.split('\n').map(l=>l.trim()).filter(l=>l);
+
+  const names = [];
+  const prices = [];
+
+  lines.forEach(l=>{
+    if(/\d{2,3}/.test(l)){
+      prices.push(l.match(/\d{2,3}/)[0]);
+    }else{
+      names.push(l);
+    }
+  });
+
+  const menu = names.slice(0, prices.length).map((n,i)=>({
+    name:n,
+    price:prices[i]
+  }));
+
+  if(menu.length){
+    stores.value.push({
+      name: "OCR店家",
+      items: menu
+    });
+  }else{
+    alert("辨識失敗");
+  }
+
+  ocrLoading.value = false;
+};
+
+// ===== 倒數 =====
 setInterval(()=>{
   if(!activeTask.value) return;
 
@@ -210,7 +249,7 @@ setInterval(()=>{
 
 },1000);
 
-// 儲存
+// ===== 儲存 =====
 setInterval(()=>{
   localStorage.setItem('stores',JSON.stringify(stores.value));
   localStorage.setItem('tasks',JSON.stringify(tasks.value));
@@ -218,9 +257,10 @@ setInterval(()=>{
 
 return {
   view,stores,newStore,
-  addStore,addItem,removeItem,
+  addStore,removeItem,
   taskName,cutoffTime,createTask,
-  activeTask,order,countdown
+  activeTask,order,countdown,
+  handleImage,ocrLoading
 };
 
 }

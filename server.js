@@ -1,20 +1,24 @@
 import express from "express";
-import fetch from "node-fetch";
 import cors from "cors";
 
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json());
 
+// 測試首頁
 app.get("/", (req, res) => {
   res.send("server running");
 });
 
-app.post("/ocr", async (req, res) => {
-  res.json({ ok: true }); // 先測試用
+// 測試 API
+app.post("/ocr", (req, res) => {
+  res.json({ ok: true });
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log("server running");
+// 🔥 這行最重要
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("server running on " + PORT);
 });
